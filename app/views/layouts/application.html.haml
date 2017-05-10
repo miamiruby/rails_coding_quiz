@@ -1,0 +1,155 @@
+!!!
+%html{"ng-app" => "app"}
+  %head
+    %meta{:content => "text/html; charset=UTF-8", "http-equiv" => "Content-Type"}/
+    %title LD Studios Rails Interview
+    = csrf_meta_tags
+    %link{:href => "https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.6/css/bootstrap.css", :media => "screen", :rel => "stylesheet", :type => "text/css"}/
+    %link{:href => "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css", :media => "screen", :rel => "stylesheet", :type => "text/css"}/
+    %script{:src => "https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.1/jquery.min.js", :type => "text/javascript"}
+    %script{:src => "https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.6/js/bootstrap.min.js", :type => "text/javascript"}
+    %script{:src => "https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js", :type => "text/javascript"}
+    %script{:src => "https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.5.0/angular.min.js", :type => "text/javascript"}
+  %body{"ng-cloak" => ""}
+    %article.container.tacos{"ng-controller" => "TacosCtrl as tc"}
+      %h1 LD Taco Shop
+      .alert.alert-danger{"ng-if" => "tc.listError"}
+        %strong Error getting tacos:
+        {{tc.listError}}
+      .alert.alert-danger{"ng-if" => "tc.createError"}
+        %strong Error ordering taco:
+        {{tc.createError}}
+      .alert.alert-danger{"ng-if" => "tc.deleteError"}
+        %strong Error deleting taco:
+        {{tc.deleteError}}
+      %h3 Order a new Taco
+      %form{:name => "form", "ng-submit" => "form.$valid && tc.createTaco()", :novalidate => "", :role => "form"}
+        %fieldset{"ng-disabled" => "tc.creatingTaco"}
+          %label Meat
+          .form-group
+            %label.radio-inline
+              %input{:name => "meat", "ng-model" => "tc.newTaco.meat", :type => "radio", :value => "chicken"}/
+              Chicken
+            %label.radio-inline
+              %input{:name => "meat", "ng-model" => "tc.newTaco.meat", :type => "radio", :value => "steak"}/
+              Steak
+          %label Sides
+          .form-group
+            %label.checkbox-inline
+              %input{"ng-model" => "tc.newTaco.rice", :type => "checkbox"}/
+              Rice
+            %label.checkbox-inline
+              %input{"ng-model" => "tc.newTaco.salsa", :type => "checkbox"}/
+              Salsa
+          %label Notes
+          .form-group
+            %textarea.form-control{"ng-model" => "tc.newTaco.notes", :rows => "3"}
+          %button.btn.btn-primary{:type => "submit"} {{tc.creatingTaco ? 'Ordering Taco...' : 'Order Taco'}}
+      %h3 Taco Queue
+      %p{"ng-if" => "!tc.tacos.length"} Empty! Order some tacos!
+      %table.table.table-striped.tacos{"ng-if" => "tc.tacos.length"}
+        %thead
+          %tr
+            %th Order #
+            %th Meat
+            %th Rice
+            %th Salsa
+            %th Notes
+            %th
+        %tbody
+          %tr{"ng-repeat" => "taco in tc.tacos track by taco.id"}
+            %td {{taco.id}}
+            %td.meat {{taco.meat}}
+            %td.rice {{taco.rice ? 'yes' : 'no'}}
+            %td.salsa {{taco.salsa ? 'yes' : 'no'}}
+            %td {{taco.notes}}
+            %td
+              %button.btn.btn-danger.btn-xs.fa.fa-times{"ng-click" => "tc.deleteTaco(taco)", :title => "Delete this Taco", :type => "button"}
+    :css
+      article.tacos form {
+        background: #eee;
+        padding: 10px;
+        border-radius: 5px;
+      }
+
+      table.tacos td.meat,
+      table.tacos td.rice,
+      table.tacos td.salsa {
+        text-transform: capitalize;
+      }
+    :javascript
+      var app = window.app = angular.module('app', []);
+
+      app.service('TacoService', function($http) {
+        function fromJSON(json) {
+          var taco = _.omit(json, '_id');
+          taco.id = json.id || json._id;
+          return taco;
+        }
+
+        this.getTacos = function() {
+          return $http.get('/tacos').then(function(result) {
+            return _.map(result.data, fromJSON);
+          });
+        };
+
+        this.createTaco = function(json) {
+          return $http({
+            method: 'POST',
+            url: '/tacos',
+            data: json
+          }).then(function(result) {
+            return fromJSON(result.data);
+          });
+        };
+
+        this.deleteTaco = function(id) {
+          return $http({
+            method: 'DELETE',
+            url: '/tacos/' + id
+          });
+        };
+      });
+
+      app.controller('TacosCtrl', function(TacoService) {
+        var tc = this;
+
+        // Load the list of tacos we already have
+        TacoService.getTacos().then(function(tacos) {
+          tc.tacos = tacos;
+        }).catch(function(err) {
+          tc.listError = err.message || err.statusText;
+        });
+
+        // Create a default taco for new tacos
+        var defaultTaco = {
+          meat: 'chicken',
+          rice: false,
+          salsa: false,
+          notes: ''
+        };
+        tc.newTaco = _.clone(defaultTaco);
+
+        tc.createTaco = function() {
+          tc.createError = null;
+          tc.creatingTaco = true;
+          TacoService.createTaco(tc.newTaco).then(function(taco) {
+            tc.tacos.push(taco);
+            tc.newTaco = _.clone(defaultTaco);
+          }).catch(function(err) {
+            tc.createError = err.message || err.statusText;
+          }).finally(function() {
+            tc.creatingTaco = false;
+          })
+        };
+
+        tc.deleteTaco = function(taco) {
+          tc.deleteError = null;
+          TacoService.deleteTaco(taco.id).then(function() {
+            var index = _.indexOf(tc.tacos, taco);
+            tc.tacos.splice(index, 1);
+          }).catch(function(err) {
+            tc.deleteError = err.message || err.statusText;
+          });
+        };
+      });
