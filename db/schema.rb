@@ -17,8 +17,8 @@ ActiveRecord::Schema.define(version: 20170510142452) do
 
   create_table "tacos", force: :cascade do |t|
     t.string   "meat"
-    t.string   "rice"
-    t.string   "salsa"
+    t.boolean  "rice"
+    t.boolean  "salsa"
     t.text     "notes"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
