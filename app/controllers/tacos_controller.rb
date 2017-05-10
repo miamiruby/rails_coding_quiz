@@ -56,10 +56,7 @@ class TacosController < ApplicationController
   # DELETE /tacos/1.json
   def destroy
     @taco.destroy
-    respond_to do |format|
-      format.html { redirect_to tacos_url, notice: 'Taco was successfully destroyed.' }
-      format.json { head :no_content }
-    end
+    render :json => @taco.id, status: :ok
   end
 
   private
